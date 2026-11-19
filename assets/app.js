@@ -39,7 +39,8 @@ const REDES = {
 const ic = r => REDES[r] ? `<span class="ic" style="color:${REDES[r].c}" role="img" aria-label="${REDES[r].n}" title="${REDES[r].n}"><svg viewBox="0 0 24 24" aria-hidden="true">${REDES[r].svg}</svg></span>` : "";
 const ESTADOS = {recibida:"En cola", en_proceso:"Trabajando", lista:"Lista", error:"Con error"};
 const ETAPAS = {alta:"preparando", captura:"leyendo Instagram", colaboraciones:"buscando marcas", comentarios:"leyendo comentarios",
-                clasificacion:"clasificando comentarios", analisis:"analizando", ficha:"armando la ficha", validacion:"revisando", subida:"publicando"};
+                clasificacion:"clasificando comentarios", analisis:"analizando", ficha:"armando la ficha", validacion:"revisando", subida:"publicando",
+                captura_tiktok:"leyendo TikTok con Chrome", captura_youtube:"leyendo YouTube con Chrome", captura_facebook:"leyendo Facebook con Chrome"};
 let refresco = null;
 
 function fecha(t){ return new Date(t).toLocaleString("es-CO",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }
