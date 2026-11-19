@@ -6,6 +6,24 @@ const CONFIG = {
   anon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpZGN0ZmdjYnp6aWlxbmJqamVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NTQsImV4cCI6MjEwNDk2MzY1NH0.wpHMdTFvCVzzE56Nin4Nc1aYZqokCCa19gumNqQvZgs",
 };
 const sb = supabase.createClient(CONFIG.url, CONFIG.anon);
+// Verificación de que no es un robot (Cloudflare Turnstile, mismo widget que el formulario de pipeagency)
+const TURNSTILE = { sitekey: "0x4AAAAAAF6CqCEKyCi1ZkaG", token: "", widget: null };
+function cargarTurnstile(){
+  TURNSTILE.token = ""; TURNSTILE.widget = null;
+  const pintar = () => {
+    const el = document.getElementById("ts"); if(!el || !window.turnstile) return;
+    TURNSTILE.widget = window.turnstile.render(el, { sitekey: TURNSTILE.sitekey, language: "es",
+      callback: t => { TURNSTILE.token = t; },
+      "expired-callback": () => { TURNSTILE.token = ""; },
+      "error-callback": () => { TURNSTILE.token = ""; } });
+  };
+  if(window.turnstile) return pintar();
+  window.onTurnstile = pintar;
+  const sc = document.createElement("script");
+  sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstile"; sc.async = true;
+  document.head.appendChild(sc);
+}
+function reiniciarTurnstile(){ TURNSTILE.token = ""; if(window.turnstile && TURNSTILE.widget !== null) window.turnstile.reset(TURNSTILE.widget); }
 const app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const REDES = {
@@ -62,6 +80,7 @@ async function inicio(){
         <form class="nueva" id="f-nueva" novalidate>
           <div id="filas-redes" class="filas-redes"></div>
           <button class="secundario" id="otra-red" type="button">+ Agregar otra red</button>
+          <div id="ts" class="ts" aria-label="Verificación de que no eres un robot"></div>
           <div id="msg-nueva"></div>
           <button class="primario" type="submit">Pedir ficha</button>
         </form></section>
@@ -71,6 +90,7 @@ async function inicio(){
   document.getElementById("f-nueva").addEventListener("submit", pedir);
   document.getElementById("otra-red").addEventListener("click", () => agregarFila());
   agregarFila("instagram");
+  cargarTurnstile();
   await listar();
   clearInterval(refresco);
   refresco = setInterval(listar, 15000);
@@ -109,11 +129,19 @@ async function pedir(e){
   if(new Set(redes.map(r=>r.red)).size !== redes.length) return error("Cada red solo puede ir una vez.");
   const mala = redes.find(r => !REDES[r.red].re.test(r.url));
   if(mala) return error(`Revisa el enlace de ${REDES[mala.red].n}. Debe ser el del perfil, por ejemplo ${REDES[mala.red].ej}`);
+  if(!TURNSTILE.token) return error("Marca la verificación de que no eres un robot y vuelve a intentar.");
   b.disabled = true; b.textContent = "Enviando…";
-  const ig = redes.find(r => r.red === "instagram");
-  const { error: err } = await sb.from("scorecard_solicitudes").insert({ redes, ventana_dias: 30, enlace_instagram: ig ? ig.url : null });
+  const { data: { session } } = await sb.auth.getSession();
+  let r, j = {};
+  try {
+    r = await fetch(`${CONFIG.url}/functions/v1/scorecard-pedir`, { method: "POST",
+      headers: { "Content-Type": "application/json", apikey: CONFIG.anon, Authorization: `Bearer ${session?.access_token||""}` },
+      body: JSON.stringify({ redes, token: TURNSTILE.token }) });
+    j = await r.json().catch(() => ({}));
+  } catch { j = { error: "No hay conexión. Intenta de nuevo." }; }
   b.disabled = false; b.textContent = "Pedir ficha";
-  if(err) return error(/límite/.test(err.message) ? err.message : "No se pudo enviar. Revisa los enlaces e intenta de nuevo.");
+  reiniciarTurnstile();
+  if(!r || !r.ok) return error(j.error || "No se pudo enviar. Intenta de nuevo.");
   document.getElementById("filas-redes").innerHTML = ""; agregarFila("instagram");
   msg.innerHTML = `<p class="msg ok">Listo: quedó en la cola.</p>`;
   listar();

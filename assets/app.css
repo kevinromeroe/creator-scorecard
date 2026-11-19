@@ -75,3 +75,5 @@ main{padding:28px 0 60px;display:grid;grid-template-columns:360px 1fr;gap:28px;a
   .sol .acc{grid-row:auto;grid-column:1;justify-content:flex-start}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.ts{min-height:65px}
