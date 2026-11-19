@@ -159,9 +159,25 @@ async function listar(){
     return `<article class="sol"><div><span class="h">@${esc(s.handle||"")}</span><span class="estado ${s.estado}">${esc(est)}</span></div>
       <p class="m">${(s.redes||[]).map(r=>ic(r.red)).join("")} últimos ${s.ventana_dias||30} días · pedida ${fecha(s.creado_en)}${s.segundos?` · tardó ${duracion(s.segundos)}`:""}</p>
       <div class="acc">${s.estado==="lista"?`<button class="primario" data-ver="${s.id}|ficha" data-t="@${esc(s.handle)}">Ver ficha</button>
+        <button class="secundario" data-pdf="${s.id}" data-h="${esc(s.handle)}">Descargar PDF</button>
         <button class="secundario" data-ver="${s.id}|comercial" data-t="Notas internas · @${esc(s.handle)}">Notas internas</button>`:""}</div>
       ${notas.length?`<p class="notas">${notas.map(esc).join(" ")}</p>`:""}</article>`; }).join("");
   el.querySelectorAll("[data-ver]").forEach(b => b.addEventListener("click", () => ver(b.dataset.ver, b.dataset.t)));
+  el.querySelectorAll("[data-pdf]").forEach(b => b.addEventListener("click", () => descargarPdf(b, b.dataset.pdf, b.dataset.h)));
+}
+
+async function descargarPdf(boton, id, handle){
+  const txt = boton.textContent; boton.disabled = true; boton.textContent = "Preparando…";
+  const { data, error } = await sb.from("scorecard_archivos").select("html").eq("solicitud_id", id).eq("tipo", "pdf").maybeSingle();
+  boton.disabled = false; boton.textContent = txt;
+  if(error || !data){ alert("El PDF de esta ficha todavía no está disponible."); return; }
+  const bin = atob(data.html), bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  a.download = `Ficha-${handle}.pdf`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
 async function ver(clave, titulo){
