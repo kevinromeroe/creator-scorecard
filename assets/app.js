@@ -153,17 +153,79 @@ async function listar(){
   const { data, error } = await sb.from("scorecard_solicitudes").select("*").order("creado_en", { ascending:false }).limit(50);
   if(error){ el.innerHTML = `<p class="msg error">No se pudo cargar la lista. Si acabas de entrar, pide que activen tu correo como analista.</p>`; return; }
   if(!data.length){ el.innerHTML = `<p class="vacio">Todavía no has pedido fichas. Empieza con el formulario de la izquierda.</p>`; return; }
+  const col = {};
+  const { data: cs } = await sb.from("scorecard_colaboraciones").select("solicitud_id,estado,aplicado").in("solicitud_id", data.map(s => s.id));
+  (cs||[]).forEach(c => { const x = col[c.solicitud_id] ||= {total:0, pendientes:0, aplicando:0};
+    x.total++; if(c.estado==="por_confirmar") x.pendientes++; else if(!c.aplicado) x.aplicando++; });
   el.innerHTML = data.map(s => {
+    const c = col[s.id];
     const est = s.estado==="en_proceso" && s.etapa ? `${ESTADOS[s.estado]}: ${ETAPAS[s.etapa]||s.etapa}` : ESTADOS[s.estado];
-    const notas = [...(s.notas||[]), s.por_confirmar ? `${s.por_confirmar} colaboraciones por confirmar.` : null, s.estado==="error" ? s.error : null].filter(Boolean);
+    const notas = [...(s.notas||[]), c?.aplicando ? "Aplicando tus decisiones de colaboraciones: la ficha y el PDF se actualizan en unos minutos." : null,
+                   s.estado==="error" ? s.error : null].filter(Boolean);
+    const bColab = c ? `<button class="${c.pendientes?"primario aviso":"secundario"}" data-colab="${s.id}" data-h="${esc(s.handle)}">${
+      c.pendientes ? `Confirmar colaboraciones (${c.pendientes})` : `Colaboraciones (${c.total})`}</button>` : "";
     return `<article class="sol"><div><span class="h">@${esc(s.handle||"")}</span><span class="estado ${s.estado}">${esc(est)}</span></div>
       <p class="m">${(s.redes||[]).map(r=>ic(r.red)).join("")} últimos ${s.ventana_dias||30} días · pedida ${fecha(s.creado_en)}${s.segundos?` · tardó ${duracion(s.segundos)}`:""}</p>
       <div class="acc">${s.estado==="lista"?`<button class="primario" data-ver="${s.id}|ficha" data-t="@${esc(s.handle)}">Ver ficha</button>
         <button class="secundario" data-pdf="${s.id}" data-h="${esc(s.handle)}">Descargar PDF</button>
-        <button class="secundario" data-ver="${s.id}|comercial" data-t="Notas internas · @${esc(s.handle)}">Notas internas</button>`:""}</div>
+        <button class="secundario" data-ver="${s.id}|comercial" data-t="Notas internas · @${esc(s.handle)}">Notas internas</button>${bColab}`:""}</div>
       ${notas.length?`<p class="notas">${notas.map(esc).join(" ")}</p>`:""}</article>`; }).join("");
   el.querySelectorAll("[data-ver]").forEach(b => b.addEventListener("click", () => ver(b.dataset.ver, b.dataset.t)));
   el.querySelectorAll("[data-pdf]").forEach(b => b.addEventListener("click", () => descargarPdf(b, b.dataset.pdf, b.dataset.h)));
+  el.querySelectorAll("[data-colab]").forEach(b => b.addEventListener("click", () => colaboraciones(b.dataset.colab, b.dataset.h)));
+}
+
+/* ---------- confirmar colaboraciones: el analista decide; el OptiPlex rehace la ficha y el PDF (sin volver a leer las redes) */
+const ESTADO_COLAB = {por_confirmar:"Por confirmar", confirmada:"Confirmada", rechazada:"No es colaboración"};
+async function colaboraciones(id, handle){
+  const { data, error } = await sb.from("scorecard_colaboraciones").select("*").eq("solicitud_id", id).order("fecha", { ascending:false });
+  if(error){ alert("No se pudieron cargar las colaboraciones."); return; }
+  const v = document.createElement("div");
+  v.className = "visor colab"; v.setAttribute("role","dialog"); v.setAttribute("aria-label", `Colaboraciones de @${handle}`);
+  const tarjeta = c => {
+    const fecha = c.fecha ? new Date(c.fecha + "T12:00:00").toLocaleDateString("es-CO",{day:"numeric",month:"short",year:"numeric"}) : "";
+    const propuesta = c.propuesta_es === true ? `Claude propone: sí, con ${esc(c.propuesta_marca||"una marca")}`
+                    : c.propuesta_es === false ? "Claude propone: no es colaboración" : "";
+    const quien = c.estado !== "por_confirmar" && c.decidido_por ? ` · decidió ${esc(String(c.decidido_por).replace(/ \(plataforma\).*/,""))}` : "";
+    return `<article class="cand" data-id="${c.id}">
+      <header>${ic(c.red)}<span>${esc(fecha)}</span>${c.url?`<a href="${esc(c.url)}" target="_blank" rel="noopener">Ver publicación</a>`:""}
+        <span class="estado-c ${c.estado}">${ESTADO_COLAB[c.estado]}${c.estado!=="por_confirmar" && !c.aplicado ? " · aplicándose" : ""}</span></header>
+      <p class="texto">${esc(c.texto||"(sin texto)")}</p>
+      ${(c.senales||[]).length?`<ul class="senales">${c.senales.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${propuesta?`<p class="propuesta">${propuesta}${quien}</p>`:(quien?`<p class="propuesta">${quien.slice(3)}</p>`:"")}
+      <div class="decidir">
+        <label>Marca<input name="marca" value="${esc(c.marca ?? c.propuesta_marca ?? "")}" placeholder="Nombre de la marca" autocomplete="off"></label>
+        <button class="primario" data-d="confirmada" type="button">Sí es colaboración</button>
+        <button class="secundario" data-d="rechazada" type="button">No es colaboración</button>
+      </div>
+      <p class="msg-c" role="status"></p></article>`;
+  };
+  v.innerHTML = `<div class="top"><b>Colaboraciones de @${esc(handle)}</b><button class="secundario" type="button" data-cerrar>Cerrar</button></div>
+    <div class="hoja"><p class="ayuda">Revisa cada publicación. Si es con una marca, confirma y corrige el nombre; si no, márcala como "No es colaboración".
+      Al decidir, la ficha y el PDF se rehacen solos en unos minutos con lo que confirmes. No se vuelve a consultar ninguna red.</p>
+      ${data.length ? data.map(tarjeta).join("") : `<p class="vacio">Esta ficha no tiene publicaciones candidatas a colaboración.</p>`}</div>`;
+  const cerrar = () => { v.remove(); document.removeEventListener("keydown", tecla); listar(); };
+  const tecla = e => { if(e.key==="Escape") cerrar(); };
+  v.querySelector("[data-cerrar]").addEventListener("click", cerrar);
+  v.addEventListener("click", async e => {   // un solo manejador: sirve también para las tarjetas que se reemplazan
+    const b = e.target.closest("[data-d]"); if(!b) return;
+    const t = b.closest(".cand");
+    const estado = b.dataset.d, marca = t.querySelector("input").value.trim(), msg = t.querySelector(".msg-c");
+    if(estado==="confirmada" && !marca){ msg.className = "msg-c error"; msg.textContent = "Escribe el nombre de la marca para confirmar."; t.querySelector("input").focus(); return; }
+    t.querySelectorAll("button").forEach(x => x.disabled = true);
+    const { data: fila, error } = await sb.from("scorecard_colaboraciones").update({ estado, marca: estado==="confirmada" ? marca : null })
+      .eq("id", t.dataset.id).select().single();
+    t.querySelectorAll("button").forEach(x => x.disabled = false);
+    if(error || !fila){ msg.className = "msg-c error"; msg.textContent = "No se guardó. Intenta de nuevo."; return; }
+    const nueva = document.createElement("div"); nueva.innerHTML = tarjeta(fila);
+    const n = nueva.firstElementChild; t.replaceWith(n);
+    n.querySelector(".msg-c").className = "msg-c ok";
+    n.querySelector(".msg-c").textContent = estado==="confirmada" ? `Guardado: colaboración con ${marca}. La ficha se actualizará en unos minutos.`
+                                                                  : "Guardado: no es colaboración. La ficha se actualizará en unos minutos.";
+  });
+  document.addEventListener("keydown", tecla);
+  document.body.appendChild(v);
+  v.querySelector("[data-cerrar]").focus();
 }
 
 async function descargarPdf(boton, id, handle){
