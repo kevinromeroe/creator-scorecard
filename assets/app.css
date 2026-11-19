@@ -40,6 +40,13 @@ main{padding:28px 0 60px;display:grid;grid-template-columns:360px 1fr;gap:28px;a
 .panel .ayuda{font-size:14px;color:var(--tenue);margin-bottom:16px}
 .nueva{display:grid;gap:14px}
 .nueva small{font-weight:400;color:var(--tenue)}
+.filas-redes{display:grid;gap:12px}
+.fila-red{display:grid;grid-template-columns:120px 1fr 34px;gap:8px;align-items:end}
+.quitar{border:1px solid var(--linea);background:#fff;border-radius:9px;height:44px;font-size:20px;line-height:1;color:var(--tenue)}
+.quitar:hover{color:var(--error);border-color:var(--error)}
+#otra-red{justify-self:start}
+.ic{display:inline-flex;margin-right:4px;vertical-align:-3px}
+.ic svg{width:16px;height:16px}
 .lista{display:grid;gap:10px}
 .sol{display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:center;padding:14px 16px;border:1px solid var(--linea);border-radius:12px;background:#fff}
 .sol .h{font-size:17px;font-weight:700}

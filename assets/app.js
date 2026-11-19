@@ -8,8 +8,17 @@ const CONFIG = {
 const sb = supabase.createClient(CONFIG.url, CONFIG.anon);
 const app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const NICHOS = ["gastronomía","viajes","belleza y moda","fitness y salud","tecnología","entretenimiento y humor",
-                "familia y crianza","finanzas","gaming","estilo de vida","diseño y creatividad"];
+const REDES = {
+  instagram: {n:"Instagram", c:"#E1306C", ej:"https://www.instagram.com/usuario/", re:/^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9._]{1,30}\/?$/i,
+              svg:'<rect x="3" y="3" width="18" height="18" rx="5.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/>'},
+  tiktok:    {n:"TikTok", c:"#16243A", ej:"https://www.tiktok.com/@usuario", re:/^https:\/\/(www\.)?tiktok\.com\/@[A-Za-z0-9._]{1,30}\/?$/i,
+              svg:'<path fill="currentColor" d="M16 3c.5 2.6 2.2 4.2 4.8 4.4v3.1c-1.7.1-3.3-.4-4.8-1.4v6.6c0 3.5-2.8 6.3-6.3 6.3s-6.3-2.8-6.3-6.3 2.8-6.3 6.3-6.3c.3 0 .6 0 .9.1v3.2a3.1 3.1 0 1 0 2.2 3V3H16z"/>'},
+  facebook:  {n:"Facebook", c:"#1877F2", ej:"https://www.facebook.com/pagina", re:/^https:\/\/(www\.|m\.)?facebook\.com\/[A-Za-z0-9._-]{1,80}\/?$/i,
+              svg:'<circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#fff" d="M13.4 22v-8.1h2.4l.4-2.8h-2.8V9.4c0-.8.3-1.4 1.4-1.4h1.5V5.5c-.3 0-1.2-.1-2.2-.1-2.2 0-3.6 1.3-3.6 3.7v2h-2.4v2.8h2.4V22z"/>'},
+  youtube:   {n:"YouTube", c:"#FF0000", ej:"https://www.youtube.com/@canal", re:/^https:\/\/(www\.)?youtube\.com\/@[A-Za-z0-9._-]{1,60}\/?$/i,
+              svg:'<rect x="2" y="5.5" width="20" height="13" rx="4" fill="currentColor"/><path fill="#fff" d="M10 9v6l5.2-3z"/>'},
+};
+const ic = r => REDES[r] ? `<span class="ic" style="color:${REDES[r].c}" role="img" aria-label="${REDES[r].n}" title="${REDES[r].n}"><svg viewBox="0 0 24 24" aria-hidden="true">${REDES[r].svg}</svg></span>` : "";
 const ESTADOS = {recibida:"En cola", en_proceso:"Trabajando", lista:"Lista", error:"Con error"};
 const ETAPAS = {alta:"preparando", captura:"leyendo Instagram", colaboraciones:"buscando marcas", comentarios:"leyendo comentarios",
                 clasificacion:"clasificando comentarios", analisis:"analizando", ficha:"armando la ficha", validacion:"revisando", subida:"publicando"};
@@ -49,11 +58,10 @@ async function inicio(){
       <button class="secundario" id="salir" type="button">Salir</button></div></header>
     <div class="wrap"><main>
       <section class="panel"><h2>Nueva ficha</h2>
-        <p class="ayuda">Pega el perfil del creador. La ficha queda lista en unos 20 minutos.</p>
+        <p class="ayuda">Elige la red, pega el enlace del perfil y agrega las demás redes del creador. Se analizan los últimos 30 días.</p>
         <form class="nueva" id="f-nueva" novalidate>
-          <label>Perfil de Instagram<input name="ig" type="url" placeholder="https://www.instagram.com/usuario/" required></label>
-          <label>Perfil de TikTok <small>(opcional; por ahora se lee a mano)</small><input name="tt" type="url" placeholder="https://www.tiktok.com/@usuario"></label>
-          <label>Nicho<select name="nicho">${NICHOS.map(n=>`<option>${n}</option>`).join("")}</select></label>
+          <div id="filas-redes" class="filas-redes"></div>
+          <button class="secundario" id="otra-red" type="button">+ Agregar otra red</button>
           <div id="msg-nueva"></div>
           <button class="primario" type="submit">Pedir ficha</button>
         </form></section>
@@ -61,6 +69,8 @@ async function inicio(){
     </main></div>`;
   document.getElementById("salir").addEventListener("click", async () => { await sb.auth.signOut(); ingreso(); });
   document.getElementById("f-nueva").addEventListener("submit", pedir);
+  document.getElementById("otra-red").addEventListener("click", () => agregarFila());
+  agregarFila("instagram");
   await listar();
   clearInterval(refresco);
   refresco = setInterval(listar, 15000);
@@ -68,19 +78,44 @@ async function inicio(){
 
 function limpiar(u){ try { const x = new URL(u.trim()); return `https://${x.hostname}${x.pathname}`.replace(/\/+$/,"/"); } catch { return u.trim(); } }
 
+function elegidas(){ return [...document.querySelectorAll(".fila-red select")].map(x => x.value); }
+function agregarFila(red){
+  const cont = document.getElementById("filas-redes");
+  const usadas = elegidas();
+  const libre = red || Object.keys(REDES).find(r => !usadas.includes(r));
+  if(!libre) return;
+  const f = document.createElement("div");
+  f.className = "fila-red";
+  f.innerHTML = `<label>Red<select name="red">${Object.entries(REDES).map(([k,v])=>`<option value="${k}" ${k===libre?"selected":""}>${v.n}</option>`).join("")}</select></label>
+    <label>Enlace del perfil<input name="url" type="url" placeholder="${REDES[libre].ej}" required></label>
+    <button type="button" class="quitar" aria-label="Quitar esta red" title="Quitar">×</button>`;
+  f.querySelector("select").addEventListener("change", e => { f.querySelector("input").placeholder = REDES[e.target.value].ej; refrescarBotones(); });
+  f.querySelector(".quitar").addEventListener("click", () => { f.remove(); refrescarBotones(); });
+  cont.appendChild(f);
+  refrescarBotones();
+  f.querySelector("input").focus();
+}
+function refrescarBotones(){
+  const filas = document.querySelectorAll(".fila-red");
+  filas.forEach(f => f.querySelector(".quitar").hidden = filas.length === 1);
+  document.getElementById("otra-red").hidden = filas.length >= 4;
+}
+
 async function pedir(e){
   e.preventDefault();
-  const f = e.target, msg = document.getElementById("msg-nueva"), b = f.querySelector("button");
-  const ig = limpiar(f.ig.value), tt = f.tt.value.trim() ? limpiar(f.tt.value).replace(/\/$/,"") : null;
-  if(!/^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9._]{1,30}\/?$/i.test(ig)){
-    msg.innerHTML = `<p class="msg error" role="alert">Pega el enlace del perfil, por ejemplo https://www.instagram.com/usuario/</p>`; return; }
-  if(tt && !/^https:\/\/(www\.)?tiktok\.com\/@[A-Za-z0-9._]{1,30}$/i.test(tt)){
-    msg.innerHTML = `<p class="msg error" role="alert">El enlace de TikTok debe ser el del perfil: https://www.tiktok.com/@usuario</p>`; return; }
+  const f = e.target, msg = document.getElementById("msg-nueva"), b = f.querySelector("button[type=submit]");
+  const redes = [...f.querySelectorAll(".fila-red")].map(x => ({ red: x.querySelector("select").value, url: limpiar(x.querySelector("input").value).replace(/\/$/, x.querySelector("select").value==="instagram" ? "/" : "") }));
+  const error = m => { msg.innerHTML = `<p class="msg error" role="alert">${esc(m)}</p>`; };
+  if(new Set(redes.map(r=>r.red)).size !== redes.length) return error("Cada red solo puede ir una vez.");
+  const mala = redes.find(r => !REDES[r.red].re.test(r.url));
+  if(mala) return error(`Revisa el enlace de ${REDES[mala.red].n}. Debe ser el del perfil, por ejemplo ${REDES[mala.red].ej}`);
   b.disabled = true; b.textContent = "Enviando…";
-  const { error } = await sb.from("scorecard_solicitudes").insert({ enlace_instagram: ig, enlace_tiktok: tt, nicho: f.nicho.value });
+  const ig = redes.find(r => r.red === "instagram");
+  const { error: err } = await sb.from("scorecard_solicitudes").insert({ redes, ventana_dias: 30, enlace_instagram: ig ? ig.url : null });
   b.disabled = false; b.textContent = "Pedir ficha";
-  if(error){ msg.innerHTML = `<p class="msg error" role="alert">${esc(/límite/.test(error.message) ? error.message : "No se pudo enviar. Revisa el enlace e intenta de nuevo.")}</p>`; return; }
-  f.reset(); msg.innerHTML = `<p class="msg ok">Listo: quedó en la cola.</p>`;
+  if(err) return error(/límite/.test(err.message) ? err.message : "No se pudo enviar. Revisa los enlaces e intenta de nuevo.");
+  document.getElementById("filas-redes").innerHTML = ""; agregarFila("instagram");
+  msg.innerHTML = `<p class="msg ok">Listo: quedó en la cola.</p>`;
   listar();
 }
 
@@ -93,7 +128,7 @@ async function listar(){
     const est = s.estado==="en_proceso" && s.etapa ? `${ESTADOS[s.estado]}: ${ETAPAS[s.etapa]||s.etapa}` : ESTADOS[s.estado];
     const notas = [...(s.notas||[]), s.por_confirmar ? `${s.por_confirmar} colaboraciones por confirmar.` : null, s.estado==="error" ? s.error : null].filter(Boolean);
     return `<article class="sol"><div><span class="h">@${esc(s.handle||"")}</span><span class="estado ${s.estado}">${esc(est)}</span></div>
-      <p class="m">${esc(s.nicho)} · pedida ${fecha(s.creado_en)}${s.segundos?` · tardó ${duracion(s.segundos)}`:""}</p>
+      <p class="m">${(s.redes||[]).map(r=>ic(r.red)).join("")} últimos ${s.ventana_dias||30} días · pedida ${fecha(s.creado_en)}${s.segundos?` · tardó ${duracion(s.segundos)}`:""}</p>
       <div class="acc">${s.estado==="lista"?`<button class="primario" data-ver="${s.id}|ficha" data-t="@${esc(s.handle)}">Ver ficha</button>
         <button class="secundario" data-ver="${s.id}|comercial" data-t="Notas internas · @${esc(s.handle)}">Notas internas</button>`:""}</div>
       ${notas.length?`<p class="notas">${notas.map(esc).join(" ")}</p>`:""}</article>`; }).join("");
