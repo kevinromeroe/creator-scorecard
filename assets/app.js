@@ -117,5 +117,36 @@ async function ver(clave, titulo){
   v.querySelector("button").focus();
 }
 
+/* ---------- crear contraseña (enlace de un solo uso: #crear=<token>) */
+function crearClave(error){
+  app.innerHTML = `<div class="ingreso"><form id="f-clave" novalidate>
+    <img src="assets/logo-datalitica.png" alt="Datalítica">
+    <div><h1>Crea tu contraseña</h1><p>Es la que usarás para entrar a Creator Scorecard. Mínimo 10 caracteres.</p></div>
+    ${error?`<p class="msg error" role="alert">${esc(error)}</p>`:""}
+    <label>Contraseña nueva<input type="password" name="c1" autocomplete="new-password" minlength="10" required></label>
+    <label>Repítela<input type="password" name="c2" autocomplete="new-password" minlength="10" required></label>
+    <button class="primario" type="submit">Guardar y entrar</button>
+  </form></div>`;
+  document.getElementById("f-clave").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = e.target;
+    if(f.c1.value.length < 10) return crearClave("Usa al menos 10 caracteres.");
+    if(f.c1.value !== f.c2.value) return crearClave("Las dos contraseñas no coinciden.");
+    const { error } = await sb.auth.updateUser({ password: f.c1.value });
+    if(error) return crearClave("No se pudo guardar. Pide un enlace nuevo.");
+    inicio();
+  });
+}
+
+async function arrancar(){
+  const token = new URLSearchParams(location.hash.slice(1)).get("crear");
+  if(token){
+    history.replaceState(null, "", location.pathname);   // el enlace no queda en el historial
+    const { error } = await sb.auth.verifyOtp({ token_hash: token, type: "recovery" });
+    return error ? ingreso("El enlace ya se usó o venció. Pide uno nuevo.") : crearClave();
+  }
+  inicio();
+}
+
 sb.auth.onAuthStateChange((ev) => { if(ev === "SIGNED_OUT") ingreso(); });
-inicio();
+arrancar();
