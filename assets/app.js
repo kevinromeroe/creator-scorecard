@@ -6,8 +6,8 @@ const CONFIG = {
   anon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpZGN0ZmdjYnp6aWlxbmJqamVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NTQsImV4cCI6MjEwNDk2MzY1NH0.wpHMdTFvCVzzE56Nin4Nc1aYZqokCCa19gumNqQvZgs",
 };
 const sb = supabase.createClient(CONFIG.url, CONFIG.anon);
-// Verificación de que no es un robot (Cloudflare Turnstile, mismo widget que el formulario de pipeagency)
-const TURNSTILE = { sitekey: "0x4AAAAAAF6CqCEKyCi1ZkaG", token: "", widget: null };
+// Verificación de que no es un robot (Cloudflare Turnstile, widget propio de Creator Scorecard)
+const TURNSTILE = { sitekey: "0x4AAAAAAGIjN2fIOq1Us6H5", token: "", widget: null };
 function cargarTurnstile(){
   TURNSTILE.token = ""; TURNSTILE.widget = null;
   const pintar = () => {

@@ -21,7 +21,7 @@ function cors(origin: string | null) {
 }
 
 async function humano(token: unknown, ip: string) {
-  const secret = Deno.env.get("TURNSTILE_SECRET");
+  const secret = Deno.env.get("SCORECARD_TURNSTILE_SECRET") ?? Deno.env.get("TURNSTILE_SECRET");
   if (!secret) throw new Falla(500, "Falta configurar la verificación. Avísale a Datalítica.");
   if (typeof token !== "string" || !token) throw new Falla(400, "Espera a que termine la verificación de que no eres un robot.");
   const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify",
