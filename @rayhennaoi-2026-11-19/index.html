@@ -81,6 +81,23 @@ a{color:inherit}
 .cifras{display:grid;gap:22px;border-left:2px solid var(--linea);padding-left:24px}
 .cifra b{display:block;font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1}
 .cifra > span{display:block;font-size:14.5px;color:var(--tinta2);margin-top:6px;line-height:1.35}
+/* alcance con 1 red (A): cifras en una franja y gráfico a todo el ancho */
+.franja-cifras{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));border-top:2px solid var(--tinta);margin-bottom:30px}
+.franja-cifras .cifra{padding:16px 20px 4px 0}
+.franja-cifras .cifra + .cifra{padding-left:20px;border-left:1px solid var(--linea)}
+.franja-cifras .cifra > span{max-width:24ch}
+.franja-cifras .det{display:block;margin-top:2px}
+.franja-cifras.pie{margin:26px 0 0;border-top:1px solid var(--linea)}
+/* alcance con varias redes (C): una franja por red */
+.carriles-filas{border-top:2px solid var(--tinta)}
+.carril{display:grid;grid-template-columns:250px 1fr;gap:24px;align-items:center;border-bottom:1px solid var(--linea);padding:10px 0}
+.carril > svg{width:100%;height:auto;display:block;overflow:visible}
+.carril-dato{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;align-items:center}
+.carril-dato .carril-ico{grid-row:1/3;grid-column:1;align-self:start;width:36px;height:36px;border-radius:10px;display:grid;place-items:center}
+.carril-dato b{grid-column:2}
+.carril-ico svg{width:20px;height:20px}
+.carril-dato b{font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.carril-dato span{font-size:13.5px;color:var(--tinta2);line-height:1.35;grid-column:2}
 figure.puntos{position:relative}
 figure.puntos > svg{width:100%;height:auto;display:block;overflow:visible}
 .ley{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:14px;color:var(--tinta2);margin-bottom:10px}
@@ -200,6 +217,12 @@ figure.puntos > svg{width:100%;height:auto;display:block;overflow:visible}
   .portada .wrap{grid-template-columns:1fr;gap:20px}
   .foto{width:112px;height:112px}
   .alcance{grid-template-columns:1fr;gap:30px}
+  .franja-cifras{grid-template-columns:1fr 1fr}
+  .franja-cifras .cifra{padding:14px 12px 4px 0}
+  .franja-cifras .cifra + .cifra{padding-left:0;border-left:0}
+  .franja-cifras .cifra:nth-child(even){padding-left:14px;border-left:1px solid var(--linea)}
+  .franja-cifras .cifra b{font-size:28px}
+  .carril{grid-template-columns:1fr;gap:6px;padding:14px 0}
   .aud{grid-template-columns:1fr!important;gap:30px}
   .piezas{grid-template-columns:1fr}
   .pieza{grid-template-columns:96px 1fr;gap:12px}
@@ -322,10 +345,10 @@ function vista(sc){
 }
 
 /* ---------- formato 1: cada video es un punto */
-function puntos(V){
+function puntos(V, ancho){
   // en celular el gráfico se dibuja a la mitad de ancho: así los rótulos y los puntos se leen a tamaño real
   const MOVIL = !PDF && matchMedia("(max-width: 600px)").matches;
-  const W = MOVIL ? 380 : 760, H = MOVIL ? 280 : 300, pl = MOVIL ? 46 : 56, pr=12, pt=10, pb=30;
+  const W = MOVIL ? 380 : ancho ? 1180 : 760, H = MOVIL ? 280 : ancho ? 340 : 300, pl = MOVIL ? 46 : 56, pr=12, pt=10, pb=30;
   const t0=new Date(D.ventana.desde).getTime(), t1=new Date(D.ventana.hasta).getTime();
   const vmin=Math.max(1, Math.min(...V.vids.map(p=>p.reproducciones))), vmax=Math.max(...V.vids.map(p=>p.reproducciones));
   let lo=Math.log10(vmin*0.8), hi=Math.log10(vmax*1.15);
@@ -341,12 +364,85 @@ function puntos(V){
     const x=X(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,"0")}-01`); g += `<line x1="${x}" x2="${x}" y1="${H-pb}" y2="${H-pb+5}" stroke="#B8BFC9"/><text x="${x+4}" y="${H-8}" font-size="12" fill="#6A7585">${MESES[f.getMonth()].slice(0,3)}</text>`; }
   const ord = [...V.vids].sort((a,b)=>(a.marca?1:0)-(b.marca?1:0));
   const marcas = ord.map((p,i) => { const x=X(p.fecha), y=Y(p.reproducciones), c=p.marca?"var(--naranja)":"var(--azul)";
-    const glifo = MULTI && ICONOS[p.red] ? `<g transform="translate(${x-6.3} ${y-6.3}) scale(.525)" style="color:#fff">${ICONOS[p.red][1]}</g>` : "";
     return `<g class="pt" data-i="${V.vids.indexOf(p)}" tabindex="0" role="button" aria-label="${fmt(p.reproducciones)} reproducciones, ${RED_N[p.red]}, ${fechaC(p.fecha)}">
-      <circle cx="${x}" cy="${y}" r="10.5" fill="${c}" stroke="#fff" stroke-width="1.5"/>${glifo}<circle cx="${x}" cy="${y}" r="14" fill="transparent"/></g>`; }).join("");
-  const formas = MULTI ? `<span class="sep"></span>` + V.redes.map(r=>`<span>${ic(r)}</span>`).join("") : "";
-  return `<figure class="puntos"><div class="ley"><span><i style="background:var(--azul)"></i>Sin marca</span><span><i style="background:var(--naranja)"></i>Con marca</span>${formas}<span class="ayuda">${matchMedia("(hover: none)").matches ? "Toca un punto para abrir el video" : "Pasa el cursor por un punto para ver el video"}</span></div>
+      <circle class="dot" cx="${x}" cy="${y}" r="10.5" fill="${c}" stroke="#fff" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="14" fill="transparent"/></g>`; }).join("");
+  return `<figure class="puntos"><div class="ley"><span><i style="background:var(--azul)"></i>Sin marca</span><span><i style="background:var(--naranja)"></i>Con marca</span><span class="ayuda">${AYUDA_PUNTO()}</span></div>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Reproducciones de cada video en el tiempo">${g}${marcas}</svg><div class="tip"></div></figure>`;
+}
+const AYUDA_PUNTO = () => matchMedia("(hover: none)").matches ? "Toca un punto para abrir el video" : "Pasa el cursor por un punto para ver el video";
+const COLOR_RED = {instagram:"#E1306C", tiktok:"#16243A", youtube:"#E62117", facebook:"#1877F2"};
+// íconos en blanco sobre el color de la red (los de ICONOS de Facebook y YouTube ya traen su fondo)
+const GLIFO_BLANCO = {
+  facebook: '<path fill="currentColor" d="M13.4 22v-8.1h2.4l.4-2.8h-2.8V9.4c0-.8.3-1.4 1.4-1.4h1.5V5.5c-.3 0-1.2-.1-2.2-.1-2.2 0-3.6 1.3-3.6 3.7v2h-2.4v2.8h2.4V22z"/>',
+  youtube: '<path fill="currentColor" d="M9 7.5v9l7.5-4.5z"/>'};
+
+/* ---------- alcance con 1 red (alternativa A, aprobada por Kevin el 19-nov-2026):
+   las cifras en una franja arriba y el gráfico a todo el ancho */
+function alcanceUna(V){
+  const masVisto = Math.max(...V.vids.map(p=>p.reproducciones));
+  const cifras = [
+    `<div class="cifra"><b class="num">${fmt(V.medAll)}</b><span>reproducciones tiene un video típico suyo</span></div>`,
+    V.millon ? `<div class="cifra"><b class="num">${V.millon}</b><span>${V.millon===1?"video pasó":"videos pasaron"} el millón; el más visto llegó a ${largo(masVisto)}</span></div>`
+             : `<div class="cifra"><b class="num">${fmt(masVisto)}</b><span>reproducciones tuvo su video más visto</span></div>`,
+    frecuencia(V), valorPauta(V),
+    V.tasaRed.length ? `<div class="cifra"><b class="num">1 de ${V.tasaRed[0].k}</b><span>personas que lo ven reacciona${V.tasaRed[0].red==="tiktok"?" (con guardados)":""}</span></div>` : ""];
+  return `<div class="franja-cifras">${cifras.join("")}</div><div class="grafico-ancho">${puntos(V, true)}</div>`;
+}
+
+/* ---------- alcance con varias redes (alternativa C, aprobada por Kevin el 19-nov-2026):
+   una franja por red sobre la misma línea de tiempo; cada red con sus propias cifras */
+function rangoValor(r){
+  const x = ((D.valor && D.valor.pauta) || {})[r];
+  if(!x || !(x.cop_max > 0)) return null;
+  const piso = x.minimo_cop || 0, a = Math.max(x.cop_min, piso), b = Math.max(x.cop_max, piso);
+  if(b <= piso) return {t: pesos(piso), minimo: true};
+  const u = v => v>=1e6 ? " M" : " mil", sin = v => pesos(v).slice(1).replace(/ (M|mil)$/, "");
+  return {t: pesos(a) === pesos(b) ? pesos(b) : u(a) === u(b) ? `$${sin(a)}–${sin(b)}${u(b)}` : `${pesos(a)}–${pesos(b).slice(1)}`, minimo: false};
+}
+function hallazgoRedes(V){
+  const tip = V.redes.map(r => ({r, t: D.redes[r].organico.mediana_reproducciones || 0})).sort((a,b)=>b.t-a.t)[0];
+  const pico = [...V.vids].sort((a,b)=>b.reproducciones-a.reproducciones)[0];
+  if(!pico) return "";
+  return tip.r === pico.red
+    ? `${RED_N[pico.red]} le da a la vez su video típico más alto (${fmt(tip.t)}) y su pico: ${largo(pico.reproducciones)}.`
+    : `${RED_N[tip.r]} le da el video típico más alto (${fmt(tip.t)}); ${RED_N[pico.red]}, el pico: ${largo(pico.reproducciones)}.`;
+}
+function alcanceRedes(V){
+  const MOVIL = !PDF && matchMedia("(max-width: 600px)").matches;
+  const W = MOVIL ? 380 : 900, h = MOVIL ? 88 : 96, pl = 10, pr = 16, ext = 24;
+  const t0=new Date(D.ventana.desde).getTime(), t1=new Date(D.ventana.hasta).getTime();
+  const X = f => pl + (new Date(f).getTime()-t0)/(t1-t0)*(W-pl-pr);
+  const vs = V.vids.map(p=>Math.max(1,p.reproducciones));
+  let lo=Math.log10(Math.min(...vs)*0.7), hi=Math.log10(Math.max(...vs)*1.35);
+  if(hi-lo < 1){ const c=(hi+lo)/2; lo=c-0.5; hi=c+0.5; }
+  const Y = v => Math.min(h-8, Math.max(8, 8 + (1-(Math.log10(Math.max(1,v))-lo)/(hi-lo))*(h-16)));
+  const hayMarca = V.vids.some(p=>p.marca);
+  const filas = V.redes.map((r, i) => {
+    const a = D.redes[r], ps = V.vids.filter(p=>p.red===r), ultima = i===V.redes.length-1, H = h + (ultima ? ext : 0);
+    const tipico = a.organico.mediana_reproducciones, k = a.organico.mediana_tasa ? Math.round(1/a.organico.mediana_tasa) : null, val = rangoValor(r);
+    let g = "";
+    if(Math.log10(1e6) > lo && Math.log10(1e6) < hi)
+      g += `<line x1="${pl}" x2="${W-pr}" y1="${Y(1e6)}" y2="${Y(1e6)}" stroke="#D3DBE5"/>` + (i===0 ? `<text x="${W-pr}" y="${Y(1e6)-5}" text-anchor="end" font-size="12" fill="#6A7585">1 millón</text>` : "");
+    if(tipico) g += `<line x1="${pl}" x2="${W-pr}" y1="${Y(tipico)}" y2="${Y(tipico)}" stroke="${COLOR_RED[r]}" stroke-opacity=".4" stroke-dasharray="4 4"/>`;
+    const d0=new Date(t0); for(let f=new Date(d0.getFullYear(), d0.getMonth()+1, 1); f.getTime()<=t1; f=new Date(f.getFullYear(), f.getMonth()+1, 1)){
+      const x=X(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,"0")}-01`);
+      g += `<line x1="${x}" x2="${x}" y1="0" y2="${h}" stroke="#C9D2DD" stroke-dasharray="2 4"/>` + (ultima ? `<text x="${x+5}" y="${h+17}" font-size="12.5" fill="#6A7585">${MESES[f.getMonth()]}</text>` : ""); }
+    const pts = [...ps].sort((a,b)=>(a.marca?1:0)-(b.marca?1:0)).map(p => { const x=X(p.fecha), y=Y(p.reproducciones);
+      return `<g class="pt" data-i="${V.vids.indexOf(p)}" tabindex="0" role="button" aria-label="${fmt(p.reproducciones)} reproducciones, ${RED_N[p.red]}, ${fechaC(p.fecha)}">
+        <circle class="dot" cx="${x}" cy="${y}" r="${MOVIL?6.5:8}" fill="${p.marca?"var(--naranja)":COLOR_RED[r]}" stroke="#fff" stroke-width="2"/><circle cx="${x}" cy="${y}" r="13" fill="transparent"/></g>`; }).join("");
+    return `<div class="carril">
+      <div class="carril-dato"><span class="carril-ico" style="background:${COLOR_RED[r]}">${ICONOS[r] ? `<svg viewBox="0 0 24 24" aria-hidden="true" style="color:#fff">${GLIFO_BLANCO[r] || ICONOS[r][1]}</svg>` : ""}</span>
+        <b class="num">${tipico ? fmt(tipico) : "—"}</b>
+        <span>${tipico ? `video típico en ${RED_N[r]}` : `${RED_N[r]}: sin reproducciones públicas`}<br>${ps.length} ${ps.length===1?"video":"videos"}${k?` · 1 de ${k} reacciona`:""}${val?`<br>${val.minimo?"mínimo ":"≈ "}${val.t} en publicidad`:""}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Reproducciones de cada video en ${RED_N[r]}">${g}${pts}</svg></div>`; }).join("");
+  const masVisto = Math.max(...V.vids.map(p=>p.reproducciones));
+  return `<figure class="puntos carriles"><div class="ley">${V.redes.map(r=>`<span><i style="background:${COLOR_RED[r]}"></i>${RED_N[r]}</span>`).join("")}${hayMarca?`<span><i style="background:var(--naranja)"></i>Con marca</span>`:""}
+      <span class="ayuda">${AYUDA_PUNTO()}</span></div>
+    <div class="carriles-filas">${filas}</div><div class="tip"></div></figure>
+    <div class="franja-cifras pie">${frecuencia(V)}
+      ${V.millon ? `<div class="cifra"><b class="num">${V.millon}</b><span>${V.millon===1?"video pasó":"videos pasaron"} el millón</span></div>`
+                 : `<div class="cifra"><b class="num">${fmt(masVisto)}</b><span>reproducciones tuvo su video más visto</span></div>`}
+      <div class="cifra"><b class="num">${fmt(V.medAll)}</b><span>reproducciones tiene un video típico suyo, sumando sus redes</span></div></div>`;
 }
 
 function valorPauta(V){
@@ -528,14 +624,14 @@ function pagina(sc){
     </div></div></section>
 
   <section class="cap banda" id="alcance"><div class="wrap ancho">
+    ${V.redes.length > 1 ? `
+    <h2>${hallazgoRedes(V)}</h2>
+    <p class="bajada">${Cap(PERIODO.en)}, sus ${V.posts.length} ${V.posts.every(p=>/video|reel|short/i.test(p.tipo||"Video")) ? "videos" : "publicaciones"} sumaron ${conRep(V.views)}. Cada punto es un video; la línea punteada, su video típico en esa red.</p>
+    <div class="cuerpo">${alcanceRedes(V)}</div>` : `
     <h2>${Cap(PERIODO.en)}, sus ${V.posts.length} ${V.posts.every(p=>/video|reel|short/i.test(p.tipo||"Video")) ? "videos" : "publicaciones"} sumaron ${conRep(V.views)}${enRed}.</h2>
     <p class="bajada">${V.millon===0?"Ninguno pasó el millón todavía.":V.millon===1?"Uno pasó el millón.":V.millon+" pasaron el millón."} Cada punto es un video: entre más alto, más se vio.</p>
-    <div class="cuerpo alcance">${puntos(V)}
-      <div class="cifras">${frecuencia(V)}<div class="cifra"><b class="num">${fmt(V.medAll)}</b><span>reproducciones tiene un video típico suyo</span></div>${valorPauta(V)}
-        ${V.millon ? `<div class="cifra"><b class="num">${V.millon}</b><span>${V.millon===1?"video superó":"videos superaron"} el millón</span></div>`
-                   : `<div class="cifra"><b class="num">${fmt(Math.max(...V.vids.map(p=>p.reproducciones)))}</b><span>reproducciones tuvo su video más visto</span></div>`}
-        ${V.tasaRed.length?`<div class="cifra"><b class="num">1 de ${V.tasaRed[0].k}</b><span>${tasaTxt.replace(/^1 de cada \d+ /,"personas que lo ven ")}</span></div>`:""}</div>
-    </div></div></section>
+    <div class="cuerpo">${alcanceUna(V)}</div>`}
+    </div></section>
 
   <section class="cap" id="contenido"><div class="wrap">
     <h2>${est?`De todo lo que publica, «${esc(est.nombre)}» es lo que más se ve.`:"De qué habla y cuánto se ve cada tema."}</h2>
