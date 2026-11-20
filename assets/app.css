@@ -100,3 +100,10 @@ main{padding:28px 0 60px;display:grid;grid-template-columns:360px 1fr;gap:28px;a
 .msg-c.ok{color:var(--ok)}
 .msg-c.error{color:var(--error)}
 @media (max-width:640px){.cand .decidir{grid-template-columns:1fr}}
+
+/* página para el cliente */
+.sol .enlace{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--banda);border-radius:10px;padding:8px 12px;font-size:14px}
+.sol .enlace span{font-weight:700;color:var(--tinta2)}
+.sol .enlace a{color:var(--azul);font-weight:600;word-break:break-all}
+.sol .enlace .secundario{margin-left:auto;background:#fff}
+.sol .enlace.pendiente{display:block;color:var(--tenue)}

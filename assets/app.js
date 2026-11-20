@@ -169,10 +169,25 @@ async function listar(){
       <div class="acc">${s.estado==="lista"?`<button class="primario" data-ver="${s.id}|ficha" data-t="@${esc(s.handle)}">Ver ficha</button>
         <button class="secundario" data-pdf="${s.id}" data-h="${esc(s.handle)}">Descargar PDF</button>
         <button class="secundario" data-ver="${s.id}|comercial" data-t="Notas internas · @${esc(s.handle)}">Notas internas</button>${bColab}`:""}</div>
+      ${s.estado==="lista" ? enlaceCliente(s, c) : ""}
       ${notas.length?`<p class="notas">${notas.map(esc).join(" ")}</p>`:""}</article>`; }).join("");
   el.querySelectorAll("[data-ver]").forEach(b => b.addEventListener("click", () => ver(b.dataset.ver, b.dataset.t)));
   el.querySelectorAll("[data-pdf]").forEach(b => b.addEventListener("click", () => descargarPdf(b, b.dataset.pdf, b.dataset.h)));
   el.querySelectorAll("[data-colab]").forEach(b => b.addEventListener("click", () => colaboraciones(b.dataset.colab, b.dataset.h)));
+  el.querySelectorAll("[data-copiar]").forEach(b => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = "Enlace copiado"; }
+    catch { prompt("Copia el enlace:", b.dataset.copiar); }
+    setTimeout(() => { b.textContent = "Copiar enlace"; }, 2500);
+  }));
+}
+
+/* ---------- página para el cliente: scorecard.datalitica.com.co/@usuario-fecha/ (la publica el OptiPlex) */
+function enlaceCliente(s, c){
+  if(c?.pendientes) return `<p class="enlace pendiente">La página para el cliente se crea cuando confirmes las colaboraciones.</p>`;
+  if(!s.enlace_publico) return `<p class="enlace pendiente">Publicando la página para el cliente…</p>`;
+  const u = esc(s.enlace_publico);
+  return `<div class="enlace"><span>Página para el cliente</span><a href="${u}" target="_blank" rel="noopener">${u.replace(/^https:\/\//,"")}</a>
+    <button class="secundario" type="button" data-copiar="${u}">Copiar enlace</button></div>`;
 }
 
 /* ---------- confirmar colaboraciones: el analista decide; el OptiPlex rehace la ficha y el PDF (sin volver a leer las redes) */
